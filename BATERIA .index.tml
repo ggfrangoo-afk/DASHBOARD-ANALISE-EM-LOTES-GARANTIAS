@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Premium de Lotes</title>
+    <title>Dashboard Analise de Garantias por Lotes</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
-    <!-- SheetJS (xlsx) -->
+    <!-- SheetJS (xlsx) - Not used for loading, but kept for potential future use -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -95,6 +95,62 @@
             visibility: visible;
             opacity: 1;
         }
+
+        /* Estilos de Impressão */
+        #print-container {
+            display: none;
+        }
+
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #print-container, #print-container * {
+                visibility: visible;
+                -webkit-print-color-adjust: exact;
+                color-adjust: exact;
+            }
+            #print-container {
+                display: block;
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                font-family: 'Inter', sans-serif;
+            }
+            @page {
+                size: A4;
+                margin: 2cm;
+            }
+            .print-page-break {
+                page-break-after: always;
+            }
+            h1, h2, h3, h4, h5, h6 { color: black !important; }
+            div, p, span, th, td {
+                color: black !important;
+                background-color: white !important;
+            }
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 1rem;
+            }
+            th, td {
+                border: 1px solid #ccc;
+                padding: 8px;
+                text-align: left;
+            }
+            thead {
+                background-color: #f2f2f2 !important;
+            }
+            img.chart-image {
+                max-width: 100%;
+                border: 1px solid #eee;
+                padding: 5px;
+                margin-top: 1rem;
+                border-radius: 8px;
+            }
+        }
     </style>
 </head>
 <body class="dark:bg-gray-900 text-gray-800 dark:text-gray-200 antialiased">
@@ -103,22 +159,35 @@
         <!-- Cabeçalho com Título e Toggle de Modo Escuro -->
         <header class="flex justify-between items-center mb-8">
             <div>
-                <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Dashboard Premium de Lotes</h1>
-                <p class="text-sm text-gray-500 dark:text-gray-400">Análise avançada de relatórios de produção.</p>
+                <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Dashboard Analise de Garantias por Lotes</h1>
+                <p class="text-sm text-gray-500 dark:text-gray-400">Análise de Garantias Finalizadas.</p>
             </div>
-            <button id="theme-toggle" class="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
-                <!-- Ícone de Sol -->
-                <svg id="theme-toggle-light-icon" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.707.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11h-1a1 1 0 110-2h1a1 1 0 110 2zm-2 4a1 1 0 011.414 0l.707.707a1 1 0 11-1.414 1.414l-.707-.707a1 1 0 010-1.414zM4 11H3a1 1 0 110-2h1a1 1 0 110 2zm1.464 4.95a1 1 0 01-1.414 0l-.707-.707a1 1 0 111.414-1.414l.707.707a1 1 0 010 1.414zM8 4a1 1 0 01-1.414 0L5.879 3.293a1 1 0 111.414-1.414L8 2.586z"></path></svg>
-                <!-- Ícone de Lua -->
-                <svg id="theme-toggle-dark-icon" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
-            </button>
+            <div class="flex items-center gap-2">
+                <button id="print-btn" class="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" title="Imprimir Relatório">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                </button>
+                <button id="theme-toggle" class="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                    <!-- Ícone de Sol -->
+                    <svg id="theme-toggle-light-icon" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.707.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11h-1a1 1 0 110-2h1a1 1 0 110 2zm-2 4a1 1 0 011.414 0l.707.707a1 1 0 11-1.414 1.414l-.707-.707a1 1 0 010-1.414zM4 11H3a1 1 0 110-2h1a1 1 0 110 2zm1.464 4.95a1 1 0 01-1.414 0l-.707-.707a1 1 0 111.414-1.414l.707.707a1 1 0 010 1.414zM8 4a1 1 0 01-1.414 0L5.879 3.293a1 1 0 111.414-1.414L8 2.586z"></path></svg>
+                    <!-- Ícone de Lua -->
+                    <svg id="theme-toggle-dark-icon" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
+                </button>
+            </div>
         </header>
+        
+        <!-- Logo Display -->
+        <div id="logo-display" class="hidden text-center my-8">
+            <h2 class="text-4xl font-extrabold tracking-tight text-gray-900 dark:text-white sm:text-5xl">
+                <span class="block">FABRECK</span>
+                <span class="block text-blue-600 dark:text-blue-400 text-3xl sm:text-4xl">BATERIAS</span>
+            </h2>
+        </div>
 
         <!-- Seção de Upload -->
         <div id="upload-section" class="max-w-3xl mx-auto bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 mb-10">
             <div id="upload-box">
                 <h2 class="text-xl font-semibold mb-2 text-center text-gray-700 dark:text-gray-200">Carregar Relatório</h2>
-                <p class="text-center text-gray-500 dark:text-gray-400 mb-4 text-sm">Selecione ou arraste um arquivo CSV ou XLSX para começar.</p>
+                <p class="text-center text-gray-500 dark:text-gray-400 mb-4 text-sm">Selecione ou arraste um ficheiro CSV ou XLSX para começar.</p>
                 <label for="file-upload" class="flex flex-col items-center justify-center w-full h-40 border-2 border-gray-300 dark:border-gray-600 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
                     <div class="flex flex-col items-center justify-center pt-5 pb-6">
                         <svg class="w-8 h-8 mb-4 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/></svg>
@@ -128,9 +197,9 @@
                     <input id="file-upload" type="file" class="hidden" accept=".csv, .xlsx, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
                 </label>
             </div>
-            <div id="processing-box" class="hidden flex-col items-center justify-center h-40">
+             <div id="processing-box" class="hidden flex-col items-center justify-center h-40">
                 <div class="spinner w-12 h-12 rounded-full border-4 border-gray-300 dark:border-gray-600"></div>
-                <p class="mt-4 text-gray-600 dark:text-gray-300">Processando arquivo...</p>
+                <p class="mt-4 text-gray-600 dark:text-gray-300">A processar dados...</p>
                 <p id="file-name" class="text-center text-sm text-gray-500 dark:text-gray-400 mt-2"></p>
             </div>
         </div>
@@ -373,6 +442,9 @@
 
     </div>
 
+    <!-- Container para Impressão -->
+    <div id="print-container"></div>
+
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             // --- Variáveis de estado ---
@@ -388,10 +460,13 @@
             const dashboardResults = doc('dashboard-results');
             const errorMessageDiv = doc('error-message');
             const errorTextSpan = doc('error-text');
+            const uploadSection = doc('upload-section');
             const uploadBox = doc('upload-box');
             const processingBox = doc('processing-box');
             const fileNameDisplay = doc('file-name');
             const loteSelector = doc('lote-selector');
+            const logoDisplay = doc('logo-display');
+            const printBtn = doc('print-btn');
 
             const views = {
                 lote: doc('lote-view'),
@@ -445,9 +520,12 @@
             fileInput.addEventListener('change', (event) => {
                 const file = event.target.files[0];
                 if (!file) return;
+                
                 fileNameDisplay.textContent = file.name;
                 errorMessageDiv.classList.add('hidden');
                 dashboardResults.classList.add('hidden');
+                logoDisplay.classList.add('hidden');
+                
                 uploadBox.classList.add('hidden');
                 processingBox.classList.remove('hidden');
                 processingBox.classList.add('flex');
@@ -460,15 +538,10 @@
                         } else if (fileName.endsWith('.xlsx')) {
                             parseXLSX(file);
                         } else {
-                            throw new Error("Formato de arquivo não suportado. Use CSV ou XLSX.");
+                            throw new Error("Formato de ficheiro não suportado. Use CSV ou XLSX.");
                         }
                     } catch (error) {
                         showError(error.message);
-                    } finally {
-                        uploadBox.classList.remove('hidden');
-                        processingBox.classList.add('hidden');
-                        processingBox.classList.remove('flex');
-                        fileInput.value = '';
                     }
                 }, 500);
             });
@@ -477,6 +550,13 @@
                 errorTextSpan.textContent = message;
                 errorMessageDiv.classList.remove('hidden');
                 dashboardResults.classList.add('hidden');
+                
+                // Reset UI on error
+                uploadSection.classList.remove('hidden');
+                uploadBox.classList.remove('hidden');
+                processingBox.classList.add('hidden');
+                processingBox.classList.remove('flex');
+                fileInput.value = '';
             }
 
             function parseCSV(file) {
@@ -488,7 +568,7 @@
                         showError(`Erro ao processar CSV: ${err.message}`);
                     }
                 };
-                reader.onerror = () => showError("Não foi possível ler o arquivo CSV.");
+                reader.onerror = () => showError("Não foi possível ler o ficheiro CSV.");
                 reader.readAsText(file, 'UTF-8');
             }
             
@@ -499,21 +579,21 @@
                         const data = new Uint8Array(e.target.result);
                         const workbook = XLSX.read(data, { type: 'array' });
                         const firstSheetName = workbook.SheetNames[0];
-                        if (!firstSheetName) throw new Error("O arquivo XLSX está vazio ou não contém planilhas.");
+                        if (!firstSheetName) throw new Error("O ficheiro XLSX está vazio ou não contém planilhas.");
                         const worksheet = workbook.Sheets[firstSheetName];
-                        const csvText = XLSX.utils.sheet_to_csv(worksheet);
+                        const csvText = XLSX.utils.sheet_to_csv(worksheet, {blankrows: false});
                         processInitialData(csvText);
                     } catch (err) {
                         showError(`Erro ao processar XLSX: ${err.message}`);
                     }
                 };
-                reader.onerror = () => showError("Não foi possível ler o arquivo XLSX.");
+                reader.onerror = () => showError("Não foi possível ler o ficheiro XLSX.");
                 reader.readAsArrayBuffer(file);
             }
 
             function processInitialData(csvText) {
                 const lines = csvText.split(/\r\n|\n/).filter(line => line.trim() !== '');
-                if (lines.length < 2) throw new Error("O arquivo está vazio ou não contém dados.");
+                if (lines.length < 2) throw new Error("O ficheiro está vazio ou não contém dados.");
 
                 const headerLineIndex = lines.findIndex(line => line.toUpperCase().includes('CÓDIGO SERIE'));
                 if (headerLineIndex === -1) throw new Error("Coluna 'Código SERIE' é obrigatória.");
@@ -521,6 +601,7 @@
                 const header = lines[headerLineIndex].split(',').map(h => h.trim().toUpperCase());
                 const requiredCols = ['CÓDIGO SERIE', 'AÇÃO FINAL'];
                 const colIndices = {};
+                
                 requiredCols.forEach(col => {
                     const index = header.indexOf(col);
                      if (index === -1) throw new Error(`Coluna obrigatória não encontrada: ${col}`);
@@ -531,17 +612,24 @@
                 fullDataset = dataLines.map(line => {
                     const columns = line.match(/(".*?"|[^",\r\n]+)(?=\s*,|\s*$)/g) || [];
                     const row = {};
-                    if(columns.length > 0 && columns.length >= header.length) {
+                    if(columns.length > 0 && columns.length >= Object.keys(colIndices).length) {
                          requiredCols.forEach(col => {
-                            row[col] = (columns[colIndices[col]] || '').replace(/"/g, '').trim();
+                             if(colIndices[col] < columns.length) {
+                                row[col] = (columns[colIndices[col]] || '').replace(/"/g, '').trim();
+                             }
                         });
                     }
                     return row;
-                }).filter(row => row['CÓDIGO SERIE']);
+                }).filter(row => row['CÓDIGO SERIE'] && row['CÓDIGO SERIE'].length > 0);
                 
-                if (fullDataset.length === 0) throw new Error("Nenhum dado válido encontrado no arquivo.");
+                if (fullDataset.length === 0) throw new Error("Nenhum dado válido encontrado no ficheiro.");
                 
                 recalculateAggregates(fullDataset);
+
+                // UI transition on success
+                uploadSection.classList.add('hidden');
+                processingBox.classList.add('hidden');
+                logoDisplay.classList.remove('hidden');
                 dashboardResults.classList.remove('hidden');
             }
 
@@ -764,7 +852,102 @@
                 }
             }
 
+            // --- Lógica de Impressão ---
+            async function generatePrintReport() {
+                const printContainer = doc('print-container');
+                if (fullDataset.length === 0) {
+                    showError("Não há dados para imprimir. Por favor, carregue um ficheiro primeiro.");
+                    errorMessageDiv.scrollIntoView({ behavior: 'smooth' });
+                    return;
+                }
+
+                // Mostra uma mensagem temporária de "a gerar relatório"
+                printContainer.innerHTML = `
+                    <div style="text-align: center; padding: 40px; font-family: 'Inter', sans-serif;">
+                        <h2 style="font-size: 1.5rem; font-weight: 600;">A gerar relatório para impressão...</h2>
+                        <p style="color: #6b7280;">Isto pode demorar alguns segundos.</p>
+                    </div>
+                `;
+                printContainer.style.display = 'block';
+
+                // Garante que todos os gráficos estão renderizados e obtém as suas imagens
+                const chartImages = {};
+                const chartPromises = Object.keys(charts).map(key => {
+                    return new Promise((resolve) => {
+                        if (charts[key] && charts[key].ctx) {
+                            const originalAnimation = charts[key].options.animation;
+                            charts[key].options.animation = false;
+                            charts[key].update('none'); // Atualiza sem animação
+
+                            setTimeout(() => {
+                                chartImages[key] = charts[key].toBase64Image();
+                                charts[key].options.animation = originalAnimation;
+                                charts[key].update('none');
+                                resolve();
+                            }, 250); // Dá um momento para renderizar
+                        } else {
+                            resolve();
+                        }
+                    });
+                });
+
+                await Promise.all(chartPromises);
+
+                let reportHTML = `
+                    <div style="font-family: 'Inter', sans-serif; padding: 1rem;">
+                        <div style="text-align: center; margin-bottom: 2rem;">
+                            <h1 style="font-size: 2rem; font-weight: 800; margin: 0;">FABRECK BATERIAS</h1>
+                            <h2 style="font-size: 1.25rem; font-weight: 600; color: #374151; margin: 0.5rem 0;">Relatório de Análise de Garantias</h2>
+                            <p style="font-size: 0.875rem; color: #6b7280;">Gerado em: ${new Date().toLocaleString('pt-BR')}</p>
+                        </div>
+                        
+                        <div class="print-page-break">
+                            <h3 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 1rem; border-bottom: 1px solid #ddd; padding-bottom: 0.5rem;">Resumo Geral</h3>
+                            <table style="width: 100%; text-align: left; font-size: 1.125rem;">
+                                <tr><td style="padding: 0.5rem 1rem 0.5rem 0; font-weight: 600;">Total de Baterias:</td><td>${doc('lote-total-items').textContent}</td></tr>
+                                <tr><td style="padding: 0.5rem 1rem 0.5rem 0; font-weight: 600;">Lotes Únicos:</td><td>${doc('lote-unique-lotes').textContent}</td></tr>
+                                <tr><td style="padding: 0.5rem 1rem 0.5rem 0; font-weight: 600;">Ações Únicas:</td><td>${doc('analise-unique-acoes').textContent}</td></tr>
+                                <tr><td style="padding: 0.5rem 1rem 0.5rem 0; font-weight: 600;">Total de Procedentes:</td><td>${doc('temporal-total-procedentes').textContent}</td></tr>
+                            </table>
+                        </div>
+
+                        <div class="print-page-break">
+                            <h3 style="font-size: 1.5rem; font-weight: 600; margin-top: 2rem; margin-bottom: 1rem; border-bottom: 1px solid #ddd; padding-bottom: 0.5rem;">Gráficos de Distribuição</h3>
+                            ${chartImages.lote ? `<div><h4 style="font-size: 1.125rem; font-weight: 600; margin-top: 1rem;">Distribuição por Lote</h4><img src="${chartImages.lote}" class="chart-image"></div>` : ''}
+                            ${chartImages.analise ? `<div><h4 style="font-size: 1.125rem; font-weight: 600; margin-top: 2rem;">Distribuição por Análise</h4><img src="${chartImages.analise}" class="chart-image"></div>` : ''}
+                        </div>
+                        
+                        <div class="print-page-break">
+                            <h3 style="font-size: 1.5rem; font-weight: 600; margin-top: 2rem; margin-bottom: 1rem; border-bottom: 1px solid #ddd; padding-bottom: 0.5rem;">Análise de Tendências</h3>
+                             ${chartImages.temporal ? `<div><h4 style="font-size: 1.125rem; font-weight: 600; margin-top: 1rem;">Evolução de Garantias Procedentes</h4><img src="${chartImages.temporal}" class="chart-image"></div>` : ''}
+                        </div>
+
+                        <div class="print-page-break">
+                            <h3 style="font-size: 1.5rem; font-weight: 600; margin-top: 2rem; margin-bottom: 1rem; border-bottom: 1px solid #ddd; padding-bottom: 0.5rem;">Tabelas de Dados</h3>
+                            <h4 style="font-size: 1.125rem; font-weight: 600;">Resumo por Lote</h4>
+                            <table><thead><tr><th>Lote</th><th>Quantidade</th></tr></thead><tbody>${doc('lote-summary-table').innerHTML}</tbody></table>
+                        </div>
+                        
+                        <div>
+                            <h4 style="font-size: 1.125rem; font-weight: 600; margin-top: 2rem;">Resumo por Análise</h4>
+                            <table><thead><tr><th>Ação Final</th><th>Quantidade</th></tr></thead><tbody>${doc('analise-summary-table').innerHTML}</tbody></table>
+                        </div>
+                    </div>
+                `;
+
+                printContainer.innerHTML = reportHTML;
+
+                // Um timeout maior para garantir que as imagens são carregadas no DOM antes de imprimir
+                setTimeout(() => {
+                    window.print();
+                    printContainer.innerHTML = '';
+                    printContainer.style.display = 'none';
+                }, 500);
+            }
+
             // --- Lógica de Interação ---
+            printBtn.addEventListener('click', generatePrintReport);
+
             Object.keys(viewButtons).forEach(viewKey => {
                 viewButtons[viewKey].addEventListener('click', () => {
                     currentView = viewKey;
@@ -837,4 +1020,5 @@
     </script>
 </body>
 </html>
+
 
