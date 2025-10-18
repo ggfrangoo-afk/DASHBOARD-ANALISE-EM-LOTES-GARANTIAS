@@ -4,13 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard Analise de Garantias por Lotes</title>
+    <!-- Firebase SDKs for standalone access -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getFirestore, collection, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        window.firebase = { initializeApp, getFirestore, collection, query, where, onSnapshot, getAuth, signInAnonymously, onAuthStateChanged };
+    </script>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
-    <!-- SheetJS (xlsx) - Not used for loading, but kept for potential future use -->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -49,7 +54,7 @@
         }
         /* Animação do Spinner */
         .spinner {
-            border-top-color: #3498db;
+            border-top-color: #3b82f6; /* Tailwind blue-500 */
             animation: spin 1s linear infinite;
         }
         @keyframes spin {
@@ -160,7 +165,7 @@
         <header class="flex justify-between items-center mb-8">
             <div>
                 <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Dashboard Analise de Garantias por Lotes</h1>
-                <p class="text-sm text-gray-500 dark:text-gray-400">Análise de Garantias Finalizadas.</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400">Dados em tempo real do Firestore.</p>
             </div>
             <div class="flex items-center gap-2">
                 <button id="print-btn" class="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" title="Imprimir Relatório">
@@ -176,31 +181,19 @@
         </header>
         
         <!-- Logo Display -->
-        <div id="logo-display" class="hidden text-center my-8">
+        <div id="logo-display" class="text-center my-8">
             <h2 class="text-4xl font-extrabold tracking-tight text-gray-900 dark:text-white sm:text-5xl">
                 <span class="block">FABRECK</span>
                 <span class="block text-blue-600 dark:text-blue-400 text-3xl sm:text-4xl">BATERIAS</span>
             </h2>
         </div>
 
-        <!-- Seção de Upload -->
+        <!-- Seção de Loading/Error -->
         <div id="upload-section" class="max-w-3xl mx-auto bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 mb-10">
-            <div id="upload-box">
-                <h2 class="text-xl font-semibold mb-2 text-center text-gray-700 dark:text-gray-200">Carregar Relatório</h2>
-                <p class="text-center text-gray-500 dark:text-gray-400 mb-4 text-sm">Selecione ou arraste um ficheiro CSV ou XLSX para começar.</p>
-                <label for="file-upload" class="flex flex-col items-center justify-center w-full h-40 border-2 border-gray-300 dark:border-gray-600 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
-                    <div class="flex flex-col items-center justify-center pt-5 pb-6">
-                        <svg class="w-8 h-8 mb-4 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/></svg>
-                        <p class="mb-2 text-sm text-gray-500 dark:text-gray-400"><span class="font-semibold">Clique para carregar</span></p>
-                        <p class="text-xs text-gray-500 dark:text-gray-400">Suporta .CSV e .XLSX</p>
-                    </div>
-                    <input id="file-upload" type="file" class="hidden" accept=".csv, .xlsx, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
-                </label>
-            </div>
-             <div id="processing-box" class="hidden flex-col items-center justify-center h-40">
+             <div id="processing-box" class="flex flex-col items-center justify-center h-40">
                 <div class="spinner w-12 h-12 rounded-full border-4 border-gray-300 dark:border-gray-600"></div>
-                <p class="mt-4 text-gray-600 dark:text-gray-300">A processar dados...</p>
-                <p id="file-name" class="text-center text-sm text-gray-500 dark:text-gray-400 mt-2"></p>
+                <p class="mt-4 text-gray-600 dark:text-gray-300">A ligar ao Firestore e carregar dados...</p>
+                <p id="file-name" class="text-center text-sm text-gray-500 dark:text-gray-400 mt-2">Aguarde a sincronização das garantias finalizadas.</p>
             </div>
         </div>
         
@@ -234,28 +227,28 @@
                     <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 kpi-card">
                         <div class="flex items-center text-sm text-gray-500 dark:text-gray-400">Total de Baterias
                             <div class="tooltip ml-1.5">
-                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.546-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.546-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                 <span class="tooltiptext">Número total de baterias encontradas no arquivo carregado.</span>
                             </div>
                         </div><p id="lote-total-items" class="text-2xl font-bold text-gray-900 dark:text-white">0</p></div>
                     <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 kpi-card">
                         <div class="flex items-center text-sm text-gray-500 dark:text-gray-400">Lotes Únicos
                            <div class="tooltip ml-1.5">
-                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.546-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.546-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                 <span class="tooltiptext">Contagem de lotes diferentes, com base nos 4 primeiros dígitos do 'Código SERIE'.</span>
                             </div>
                         </div><p id="lote-unique-lotes" class="text-2xl font-bold text-gray-900 dark:text-white">0</p></div>
                     <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 kpi-card">
                         <div class="flex items-center text-sm text-gray-500 dark:text-gray-400">Média por Lote
                             <div class="tooltip ml-1.5">
-                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.546-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.546-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                 <span class="tooltiptext">Total de baterias dividido pela quantidade de lotes. Indica o tamanho médio de cada lote.</span>
                             </div>
                         </div><p id="lote-average-items" class="text-2xl font-bold text-gray-900 dark:text-white">0</p></div>
                     <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 kpi-card">
                         <div class="flex items-center text-sm text-gray-500 dark:text-gray-400">Lote com Maior Volume
                             <div class="tooltip ml-1.5">
-                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.546-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.546-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                 <span class="tooltiptext">O código do lote que possui a maior quantidade de baterias no arquivo.</span>
                             </div>
                         </div><p id="lote-top-lote" class="text-2xl font-bold text-gray-900 dark:text-white">-</p></div>
@@ -296,28 +289,28 @@
                     <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 kpi-card">
                         <div class="flex items-center text-sm text-gray-500 dark:text-gray-400">Total de Baterias
                            <div class="tooltip ml-1.5">
-                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.546-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.546-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                 <span class="tooltiptext">Número total de baterias encontradas no arquivo carregado.</span>
                             </div>
                         </div><p id="analise-total-items" class="text-2xl font-bold text-gray-900 dark:text-white">0</p></div>
                     <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 kpi-card">
                          <div class="flex items-center text-sm text-gray-500 dark:text-gray-400">Ações Únicas
                             <div class="tooltip ml-1.5">
-                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.546-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.546-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                 <span class="tooltiptext">Contagem de quantos tipos de 'Ação Final' diferentes (ex: Procedente) existem no arquivo.</span>
                             </div>
                         </div><p id="analise-unique-acoes" class="text-2xl font-bold text-gray-900 dark:text-white">0</p></div>
                     <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 kpi-card">
                         <div class="flex items-center text-sm text-gray-500 dark:text-gray-400">Média por Ação
                              <div class="tooltip ml-1.5">
-                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.546-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.546-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                 <span class="tooltiptext">Total de baterias dividido pela quantidade de ações. Mostra a média de baterias por resultado.</span>
                             </div>
                         </div><p id="analise-average-items" class="text-2xl font-bold text-gray-900 dark:text-white">0</p></div>
                     <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 kpi-card">
                          <div class="flex items-center text-sm text-gray-500 dark:text-gray-400">Ação Mais Frequente
                             <div class="tooltip ml-1.5">
-                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.546-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.546-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                 <span class="tooltiptext">O resultado de análise ('Ação Final') que mais se repetiu em todo o arquivo.</span>
                             </div>
                         </div><p id="analise-top-acao" class="text-2xl font-bold text-gray-900 dark:text-white">-</p></div>
@@ -358,21 +351,21 @@
                     <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 kpi-card">
                         <div class="flex items-center text-sm text-gray-500 dark:text-gray-400">Total de Procedentes
                             <div class="tooltip ml-1.5">
-                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.546-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.546-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                 <span class="tooltiptext">Número total de garantias com status 'PROCEDENTE (ENVIAR NOVA)' no arquivo.</span>
                             </div>
                         </div><p id="temporal-total-procedentes" class="text-2xl font-bold text-gray-900 dark:text-white">0</p></div>
                     <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 kpi-card">
                         <div class="flex items-center text-sm text-gray-500 dark:text-gray-400">Mês com Pico de Problemas
                            <div class="tooltip ml-1.5">
-                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.546-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.546-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                 <span class="tooltiptext">O mês/ano de fabricação que teve o maior número de garantias procedentes.</span>
                             </div>
                         </div><p id="temporal-pico-mes" class="text-2xl font-bold text-gray-900 dark:text-white">-</p></div>
                     <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 kpi-card">
                         <div class="flex items-center text-sm text-gray-500 dark:text-gray-400">Média Mensal de Procedentes
                             <div class="tooltip ml-1.5">
-                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.546-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.546-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                 <span class="tooltiptext">A média de garantias procedentes por mês, considerando os meses com ocorrências.</span>
                             </div>
                         </div><p id="temporal-media-mensal" class="text-2xl font-bold text-gray-900 dark:text-white">0.0</p></div>
@@ -389,28 +382,28 @@
                     <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 kpi-card">
                         <div class="flex items-center text-sm text-gray-500 dark:text-gray-400">Total no Lote
                             <div class="tooltip ml-1.5">
-                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.546-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.546-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                 <span class="tooltiptext">Número total de baterias pertencentes ao lote que você selecionou.</span>
                             </div>
                         </div><p id="la-total-items" class="text-2xl font-bold text-gray-900 dark:text-white">0</p></div>
                     <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 kpi-card">
                         <div class="flex items-center text-sm text-gray-500 dark:text-gray-400">Ações no Lote
                             <div class="tooltip ml-1.5">
-                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.546-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.546-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                 <span class="tooltiptext">Quantos tipos de 'Ação Final' diferentes ocorreram dentro do lote selecionado.</span>
                             </div>
                         </div><p id="la-unique-acoes" class="text-2xl font-bold text-gray-900 dark:text-white">0</p></div>
                     <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 kpi-card">
                         <div class="flex items-center text-sm text-gray-500 dark:text-gray-400">Ação Mais Comum
                            <div class="tooltip ml-1.5">
-                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.546-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.546-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                 <span class="tooltiptext">A 'Ação Final' mais frequente apenas para as baterias do lote selecionado.</span>
                             </div>
                         </div><p id="la-top-acao" class="text-2xl font-bold text-gray-900 dark:text-white">-</p></div>
                      <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 kpi-card">
                         <div class="flex items-center text-sm text-gray-500 dark:text-gray-400">% Procedente no Lote
                             <div class="tooltip ml-1.5">
-                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.546-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.546-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                 <span class="tooltiptext">Porcentagem de baterias 'Procedentes' neste lote. Um indicador chave de qualidade.</span>
                             </div>
                         </div><p id="la-procedente-perc" class="text-2xl font-bold text-red-500">0%</p></div>
@@ -447,25 +440,35 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            const { initializeApp, getFirestore, collection, query, where, onSnapshot, getAuth, signInAnonymously, onAuthStateChanged } = window.firebase;
+            
             // --- Variáveis de estado ---
             let charts = { lote: null, analise: null, 'lote-analise': null, temporal: null };
             let currentView = 'lote';
             let currentChartType = { lote: 'bar', analise: 'bar', 'lote-analise': 'bar' };
             let fullDataset = [];
+
+            // --- Credenciais e Configuração Firebase (Deve ser igual ao index.html) ---
+            const firebaseConfig = {
+                apiKey: "AIzaSyAI2t_u1T2f737QkyJ6940Hup-ZY-eYd9E",
+                authDomain: "studio-8037364926-f4af4.firebaseapp.com",
+                projectId: "studio-8037364926-f4af4",
+                storageBucket: "studio-8037364926-f4af4.appspot.com",
+                messagingSenderId: "875276153303",
+                appId: "1:875276153303:web:8d3c060072f2523b11db92"
+            };
+            
+            let db, auth;
             let processedLoteData = [], processedAnaliseData = [], processedLoteAnaliseData = new Map(), processedTemporalData = [];
 
             // --- Seletores de DOM ---
             const doc = (id) => document.getElementById(id);
-            const fileInput = doc('file-upload');
-            const dashboardResults = doc('dashboard-results');
+            const uploadSection = doc('upload-section');
+            const processingBox = doc('processing-box');
             const errorMessageDiv = doc('error-message');
             const errorTextSpan = doc('error-text');
-            const uploadSection = doc('upload-section');
-            const uploadBox = doc('upload-box');
-            const processingBox = doc('processing-box');
-            const fileNameDisplay = doc('file-name');
+            const dashboardResults = doc('dashboard-results');
             const loteSelector = doc('lote-selector');
-            const logoDisplay = doc('logo-display');
             const printBtn = doc('print-btn');
 
             const views = {
@@ -480,33 +483,39 @@
                 temporal: doc('view-temporal-btn'),
                 'lote-analise': doc('view-lote-analise-btn')
             };
+            
+            // --- Funções Auxiliares ---
+            function showError(message) {
+                errorTextSpan.textContent = message;
+                errorMessageDiv.classList.remove('hidden');
+                dashboardResults.classList.add('hidden');
+                processingBox.classList.add('hidden');
+                processingBox.classList.remove('flex');
+            }
+            
+            function showLoading(message = "A ligar ao Firestore e carregar dados...") {
+                 processingBox.classList.remove('hidden');
+                 processingBox.classList.add('flex');
+                 errorMessageDiv.classList.add('hidden');
+                 dashboardResults.classList.add('hidden');
+                 processingBox.querySelector('p:nth-child(2)').textContent = message;
+            }
 
-            // --- Lógica de Tema (Modo Escuro) ---
-            const themeToggle = doc('theme-toggle');
-            const lightIcon = doc('theme-toggle-light-icon');
-            const darkIcon = doc('theme-toggle-dark-icon');
-
-            const updateThemeIcons = () => {
-                const isDark = document.documentElement.classList.contains('dark');
-                lightIcon.classList.toggle('hidden', !isDark);
-                darkIcon.classList.toggle('hidden', isDark);
-            };
-            themeToggle.addEventListener('click', () => {
-                document.documentElement.classList.toggle('dark');
-                localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
-                updateThemeIcons();
-                renderAllCharts();
-            });
-            updateThemeIcons();
-
-             // --- Funções Auxiliares de Data ---
-            function getDateFromLot(lot) {
+            function showDashboard() {
+                uploadSection.classList.add('hidden');
+                dashboardResults.classList.remove('hidden');
+                processingBox.classList.add('hidden');
+                processingBox.classList.remove('flex');
+            }
+            
+             function getDateFromLot(lot) {
                 if (!lot || lot.length !== 4 || !/^\d{4}$/.test(lot)) return null;
                 const week = parseInt(lot.substring(0, 2), 10);
                 const year = 2000 + parseInt(lot.substring(2, 4), 10);
                 if (isNaN(week) || isNaN(year) || week < 1 || week > 53) return null;
                 const firstDayOfYear = new Date(year, 0, 1);
-                return new Date(firstDayOfYear.setDate(firstDayOfYear.getDate() + (week - 1) * 7));
+                // Calcula a data aproximada para a semana do ano (usando o 4º dia para estabilidade)
+                return new Date(firstDayOfYear.setDate(firstDayOfYear.getDate() + (week - 1) * 7 + 3)); 
             }
 
             function getMonthYearFromLot(lot) {
@@ -516,123 +525,69 @@
                 return `(${monthNames[date.getMonth()]}/${date.getFullYear().toString().slice(-2)})`;
             }
 
-            // --- Lógica de Upload e Processamento ---
-            fileInput.addEventListener('change', (event) => {
-                const file = event.target.files[0];
-                if (!file) return;
-                
-                fileNameDisplay.textContent = file.name;
-                errorMessageDiv.classList.add('hidden');
-                dashboardResults.classList.add('hidden');
-                logoDisplay.classList.add('hidden');
-                
-                uploadBox.classList.add('hidden');
-                processingBox.classList.remove('hidden');
-                processingBox.classList.add('flex');
 
-                setTimeout(() => {
-                    try {
-                        const fileName = file.name.toLowerCase();
-                        if (fileName.endsWith('.csv')) {
-                            parseCSV(file);
-                        } else if (fileName.endsWith('.xlsx')) {
-                            parseXLSX(file);
-                        } else {
-                            throw new Error("Formato de ficheiro não suportado. Use CSV ou XLSX.");
-                        }
-                    } catch (error) {
-                        showError(error.message);
-                    }
-                }, 500);
-            });
-            
-            function showError(message) {
-                errorTextSpan.textContent = message;
-                errorMessageDiv.classList.remove('hidden');
-                dashboardResults.classList.add('hidden');
-                
-                // Reset UI on error
-                uploadSection.classList.remove('hidden');
-                uploadBox.classList.remove('hidden');
-                processingBox.classList.add('hidden');
-                processingBox.classList.remove('flex');
-                fileInput.value = '';
+            // --- Lógica de Inicialização Firebase ---
+            async function initFirebase() {
+                showLoading();
+                try {
+                    const app = initializeApp(firebaseConfig);
+                    db = getFirestore(app);
+                    auth = getAuth(app);
+                    
+                    // Tenta autenticar anonimamente
+                    await new Promise((resolve, reject) => {
+                        const unsubscribe = onAuthStateChanged(auth, (user) => {
+                            unsubscribe();
+                            if (user) {
+                                resolve(user);
+                            } else {
+                                signInAnonymously(auth).then(resolve).catch(reject);
+                            }
+                        }, reject);
+                    });
+                    
+                    console.log("Firebase conectado e autenticado anonimamente.");
+                    setupFirestoreListener();
+                    
+                } catch(error) {
+                    console.error("Erro crítico na inicialização do Firebase:", error);
+                    showError("Não foi possível ligar à base de dados. Verifique a sua conexão.");
+                }
             }
 
-            function parseCSV(file) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    try {
-                        processInitialData(e.target.result);
-                    } catch(err) {
-                        showError(`Erro ao processar CSV: ${err.message}`);
-                    }
-                };
-                reader.onerror = () => showError("Não foi possível ler o ficheiro CSV.");
-                reader.readAsText(file, 'UTF-8');
-            }
-            
-            function parseXLSX(file) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    try {
-                        const data = new Uint8Array(e.target.result);
-                        const workbook = XLSX.read(data, { type: 'array' });
-                        const firstSheetName = workbook.SheetNames[0];
-                        if (!firstSheetName) throw new Error("O ficheiro XLSX está vazio ou não contém planilhas.");
-                        const worksheet = workbook.Sheets[firstSheetName];
-                        const csvText = XLSX.utils.sheet_to_csv(worksheet, {blankrows: false});
-                        processInitialData(csvText);
-                    } catch (err) {
-                        showError(`Erro ao processar XLSX: ${err.message}`);
-                    }
-                };
-                reader.onerror = () => showError("Não foi possível ler o ficheiro XLSX.");
-                reader.readAsArrayBuffer(file);
-            }
-
-            function processInitialData(csvText) {
-                const lines = csvText.split(/\r\n|\n/).filter(line => line.trim() !== '');
-                if (lines.length < 2) throw new Error("O ficheiro está vazio ou não contém dados.");
-
-                const headerLineIndex = lines.findIndex(line => line.toUpperCase().includes('CÓDIGO SERIE'));
-                if (headerLineIndex === -1) throw new Error("Coluna 'Código SERIE' é obrigatória.");
+            function setupFirestoreListener() {
+                const batteriesCollection = collection(db, "batteries");
                 
-                const header = lines[headerLineIndex].split(',').map(h => h.trim().toUpperCase());
-                const requiredCols = ['CÓDIGO SERIE', 'AÇÃO FINAL'];
-                const colIndices = {};
+                // Query: Apenas documentos com status 'finalized'
+                const finalizedQuery = query(batteriesCollection, where("status", "==", "finalized"));
                 
-                requiredCols.forEach(col => {
-                    const index = header.indexOf(col);
-                     if (index === -1) throw new Error(`Coluna obrigatória não encontrada: ${col}`);
-                    colIndices[col] = index;
+                onSnapshot(finalizedQuery, (snapshot) => {
+                    const data = snapshot.docs.map(doc => doc.data());
+                    
+                    // Filtra dados para ter os campos necessários
+                    fullDataset = data.filter(row => row.code && row.finalAction).map(row => ({
+                         // Ação Final é o campo que contém o resultado do teste
+                        'AÇÃO FINAL': row.finalAction.trim().toUpperCase(), 
+                        // Código SERIE é o campo que contém o lote (Ex: 3524A2623)
+                        'CÓDIGO SERIE': row.code.trim().toUpperCase() 
+                    }));
+
+                    if (fullDataset.length === 0) {
+                        showError("Nenhuma garantia finalizada encontrada no Firestore.");
+                        return;
+                    }
+                    
+                    console.log(`Dados sincronizados: ${fullDataset.length} registos finalizados.`);
+                    recalculateAggregates(fullDataset);
+                    showDashboard();
+                    
+                }, (error) => {
+                    console.error("Erro ao receber dados da nuvem: ", error);
+                    showError("Falha ao sincronizar dados. Verifique a sua ligação.");
                 });
-                
-                const dataLines = lines.slice(headerLineIndex + 1);
-                fullDataset = dataLines.map(line => {
-                    const columns = line.match(/(".*?"|[^",\r\n]+)(?=\s*,|\s*$)/g) || [];
-                    const row = {};
-                    if(columns.length > 0 && columns.length >= Object.keys(colIndices).length) {
-                         requiredCols.forEach(col => {
-                             if(colIndices[col] < columns.length) {
-                                row[col] = (columns[colIndices[col]] || '').replace(/"/g, '').trim();
-                             }
-                        });
-                    }
-                    return row;
-                }).filter(row => row['CÓDIGO SERIE'] && row['CÓDIGO SERIE'].length > 0);
-                
-                if (fullDataset.length === 0) throw new Error("Nenhum dado válido encontrado no ficheiro.");
-                
-                recalculateAggregates(fullDataset);
-
-                // UI transition on success
-                uploadSection.classList.add('hidden');
-                processingBox.classList.add('hidden');
-                logoDisplay.classList.remove('hidden');
-                dashboardResults.classList.remove('hidden');
             }
-
+            
+            // --- Lógica de Processamento e Visualização ---
             function recalculateAggregates(data) {
                 const loteCounts = new Map();
                 const analiseCounts = new Map();
@@ -648,12 +603,13 @@
                         loteCounts.set(lote, (loteCounts.get(lote) || 0) + 1);
                         analiseCounts.set(acaoFinal, (analiseCounts.get(acaoFinal) || 0) + 1);
 
-                        if (acaoFinal === 'PROCEDENTE (ENVIAR NOVA)') {
+                        // Análise Temporal: Foca em 'PROCEDENTE' por Data de Fabricação (Lote)
+                        if (acaoFinal === 'PROCEDENTE (ENVIAR NOVA)' || acaoFinal.includes('CORTESIA')) {
                             const date = getDateFromLot(lote);
                             if(date) {
                                 const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
                                 if (!temporalCounts.has(monthKey)) {
-                                    temporalCounts.set(monthKey, { count: 0, lotes: new Set() });
+                                    temporalCounts.set(monthKey, { count: 0, lotes: new Set(), date: date.getTime() });
                                 }
                                 const monthEntry = temporalCounts.get(monthKey);
                                 monthEntry.count++;
@@ -661,6 +617,7 @@
                             }
                         }
 
+                        // Análise Lote x Análise
                         if (!processedLoteAnaliseData.has(lote)) processedLoteAnaliseData.set(lote, new Map());
                         const acoesInLote = processedLoteAnaliseData.get(lote);
                         acoesInLote.set(acaoFinal, (acoesInLote.get(acaoFinal) || 0) + 1);
@@ -669,7 +626,12 @@
                 
                 processedLoteData = Array.from(loteCounts.entries()).sort(([, a], [, b]) => b - a);
                 processedAnaliseData = Array.from(analiseCounts.entries()).sort(([, a], [, b]) => b - a);
-                processedTemporalData = Array.from(temporalCounts.entries()).sort(([a], [b]) => new Date(a) - new Date(b));
+                
+                // Ordena dados temporais por data e mapeia para a estrutura final
+                processedTemporalData = Array.from(temporalCounts.entries())
+                    .sort(([, a], [, b]) => a.date - b.date)
+                    .map(([monthKey, data]) => [monthKey, data]);
+
 
                 updateAllViews();
             }
@@ -707,12 +669,14 @@
 
             function updateViewTemporal() {
                 const data = processedTemporalData;
-                const total = data.reduce((s, [, d]) => s + d.count, 0);
-                doc('temporal-total-procedentes').textContent = total;
+                const totalProcedentes = data.reduce((s, [, d]) => s + d.count, 0);
+                doc('temporal-total-procedentes').textContent = totalProcedentes;
+                
                 const pico = data.reduce((max, item) => item[1].count > (max[1]?.count || 0) ? item : max, ['', {count: 0}]);
-                const picoMes = pico[0] ? new Date(pico[0] + '-02').toLocaleString('default', { month: 'short', year: '2-digit' }) : '-';
+                const picoMes = pico[0] ? new Date(pico[0] + '-02').toLocaleString('pt-BR', { month: 'short', year: '2-digit' }) : '-';
                 doc('temporal-pico-mes').textContent = picoMes;
-                const media = (total / data.length || 0);
+                
+                const media = (totalProcedentes / data.length || 0);
                 doc('temporal-media-mensal').textContent = media.toFixed(1);
             }
 
@@ -748,7 +712,10 @@
                 doc('la-total-items').textContent = total;
                 doc('la-unique-acoes').textContent = data.length;
                 doc('la-top-acao').textContent = data[0] ? data[0][0] : '-';
-                doc('la-procedente-perc').textContent = `${(total > 0 ? (procedenteCount / total) * 100 : 0).toFixed(1)}%`;
+                
+                const procedentePerc = (total > 0 ? (procedenteCount / total) * 100 : 0).toFixed(1);
+                doc('la-procedente-perc').textContent = `${procedentePerc}%`;
+                
                 doc('la-chart-title').textContent = `Distribuição de Análises no Lote ${selectedLote}`;
                 updateTable(doc('lote-analise-summary-table'), data, 'lote-analise');
                 renderChartForView('lote-analise');
@@ -769,42 +736,66 @@
             }
 
             function renderAllCharts() {
-                Object.keys(charts).forEach(renderChartForView);
+                // Destroi os gráficos existentes antes de renderizar
+                Object.values(charts).forEach(chart => {
+                    if (chart) chart.destroy();
+                });
+                
+                renderChartForView('lote');
+                renderChartForView('analise');
+                renderChartForView('temporal');
+                if(loteSelector.value !== 'todos') {
+                   renderChartForView('lote-analise');
+                } else {
+                    charts['lote-analise'] = null;
+                }
             }
             
             function renderChartForView(view) {
                 const chartCanvas = doc(`${view}-chart`);
                 if(!chartCanvas) return;
+                
+                // Se já existe, destrói
                 if (charts[view]) charts[view].destroy();
 
-                let data, chartType, options;
+                let data, chartType, options, labels, chartData;
                 const isDarkMode = document.documentElement.classList.contains('dark');
                 const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
                 const textColor = isDarkMode ? '#e5e7eb' : '#374151';
                 const pieColors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1'];
-
                 const baseOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: textColor } }, tooltip: { backgroundColor: isDarkMode ? '#1f2937' : '#ffffff', titleColor: isDarkMode ? '#e5e7eb' : '#374151', bodyColor: isDarkMode ? '#d1d5db' : '#6b7280', borderColor: isDarkMode ? '#4b5563' : '#e5e7eb', borderWidth: 1, } } };
                 
                 if (view === 'lote' || view === 'analise' || view === 'lote-analise') {
-                    if (view === 'lote') data = processedLoteData;
+                    if (view === 'lote') data = processedLoteData.slice(0, 20); // Limita para melhor visualização
                     else if (view === 'analise') data = processedAnaliseData;
                     else {
                         const selectedLote = loteSelector.value;
-                        if (!selectedLote || selectedLote === 'todos' || !processedLoteAnaliseData.has(selectedLote)) { charts[view] = null; return; };
+                        if (!selectedLote || selectedLote === 'todos' || !processedLoteAnaliseData.has(selectedLote)) return;
                         data = Array.from((processedLoteAnaliseData.get(selectedLote) || new Map()).entries());
                     }
                     
                     chartType = currentChartType[view];
-                    options = { ...baseOptions, plugins: { ...baseOptions.plugins, legend: { ...baseOptions.plugins.legend, display: chartType !== 'bar', position: 'right' } }, scales: chartType === 'bar' ? { y: { grid: { color: gridColor }, ticks: { color: textColor } }, x: { grid: { color: gridColor }, ticks: { color: textColor, maxRotation: 70, minRotation: 0 } } } : {} };
+                    labels = data.map(([item]) => item);
+                    chartData = data.map(([, count]) => count);
+                    
+                    options = { ...baseOptions, plugins: { ...baseOptions.plugins, legend: { ...baseOptions.plugins.legend, display: chartType !== 'bar', position: 'right' } }, scales: chartType === 'bar' ? { y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: textColor } }, x: { grid: { color: gridColor }, ticks: { color: textColor, maxRotation: 70, minRotation: 0 } } } : {} };
                      charts[view] = new Chart(chartCanvas, {
                         type: chartType,
-                        data: { labels: data.map(([item]) => item), datasets: [{ label: 'Quantidade', data: data.map(([, count]) => count), backgroundColor: chartType === 'bar' ? 'rgba(59, 130, 246, 0.7)' : pieColors, borderColor: chartType === 'bar' ? 'rgba(59, 130, 246, 1)' : (isDarkMode ? '#1f2937' : '#ffffff'), borderWidth: chartType === 'bar' ? 1.5 : 3, borderRadius: 5 }] },
+                        data: { labels, datasets: [{ label: 'Quantidade', data: chartData, backgroundColor: chartType === 'bar' ? 'rgba(59, 130, 246, 0.7)' : pieColors, borderColor: chartType === 'bar' ? 'rgba(59, 130, 246, 1)' : (isDarkMode ? '#1f2937' : '#ffffff'), borderWidth: chartType === 'bar' ? 1.5 : 3, borderRadius: 5 }] },
                         options
                     });
 
                 } else if (view === 'temporal') {
                     data = processedTemporalData;
                     chartType = 'line';
+                    
+                    labels = data.map(([monthKey]) => {
+                        const [year, month] = monthKey.split('-');
+                        return new Date(parseInt(year), parseInt(month) - 1, 1).getTime();
+                    });
+                    
+                    chartData = data.map(([, d]) => d.count);
+                    
                     options = { 
                         ...baseOptions, 
                         plugins: {
@@ -812,6 +803,12 @@
                             tooltip: {
                                 ...baseOptions.plugins.tooltip,
                                 callbacks: {
+                                    // Customiza o label para mostrar Mês/Ano
+                                    title: (tooltipItems) => {
+                                        const date = new Date(tooltipItems[0].parsed.x);
+                                        return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+                                    },
+                                    // Adiciona a lista de lotes ao footer
                                     footer: (tooltipItems) => {
                                         const index = tooltipItems[0].dataIndex;
                                         const [, monthData] = processedTemporalData[index];
@@ -829,16 +826,21 @@
                         },
                         scales: { 
                             y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: textColor } }, 
-                            x: { type: 'time', time: { unit: 'month', displayFormats: { month: 'MMM yy' } }, grid: { color: gridColor }, ticks: { color: textColor } } 
+                            x: { 
+                                type: 'time', 
+                                time: { unit: 'month', tooltipFormat: 'MMM yy', displayFormats: { month: 'MMM yy' } }, 
+                                grid: { color: gridColor }, 
+                                ticks: { color: textColor } 
+                            } 
                         } 
                     };
                     charts[view] = new Chart(chartCanvas, {
                         type: chartType,
                         data: {
-                            labels: data.map(([date]) => date),
+                            labels,
                             datasets: [{
                                 label: 'Garantias Procedentes',
-                                data: data.map(([, d]) => d.count),
+                                data: data.map(([, d]) => ({ x: d.date, y: d.count })), // Usa a data formatada
                                 backgroundColor: 'rgba(239, 68, 68, 0.2)',
                                 borderColor: 'rgba(239, 68, 68, 1)',
                                 borderWidth: 2,
@@ -856,19 +858,12 @@
             async function generatePrintReport() {
                 const printContainer = doc('print-container');
                 if (fullDataset.length === 0) {
-                    showError("Não há dados para imprimir. Por favor, carregue um ficheiro primeiro.");
+                    showError("Não há dados para imprimir.");
                     errorMessageDiv.scrollIntoView({ behavior: 'smooth' });
                     return;
                 }
 
-                // Mostra uma mensagem temporária de "a gerar relatório"
-                printContainer.innerHTML = `
-                    <div style="text-align: center; padding: 40px; font-family: 'Inter', sans-serif;">
-                        <h2 style="font-size: 1.5rem; font-weight: 600;">A gerar relatório para impressão...</h2>
-                        <p style="color: #6b7280;">Isto pode demorar alguns segundos.</p>
-                    </div>
-                `;
-                printContainer.style.display = 'block';
+                showLoading("A gerar relatório para impressão...");
 
                 // Garante que todos os gráficos estão renderizados e obtém as suas imagens
                 const chartImages = {};
@@ -877,14 +872,14 @@
                         if (charts[key] && charts[key].ctx) {
                             const originalAnimation = charts[key].options.animation;
                             charts[key].options.animation = false;
-                            charts[key].update('none'); // Atualiza sem animação
+                            charts[key].update('none'); 
 
                             setTimeout(() => {
                                 chartImages[key] = charts[key].toBase64Image();
                                 charts[key].options.animation = originalAnimation;
                                 charts[key].update('none');
                                 resolve();
-                            }, 250); // Dá um momento para renderizar
+                            }, 250); 
                         } else {
                             resolve();
                         }
@@ -892,6 +887,9 @@
                 });
 
                 await Promise.all(chartPromises);
+                
+                // Volta para o estado normal do Dashboard
+                showDashboard();
 
                 let reportHTML = `
                     <div style="font-family: 'Inter', sans-serif; padding: 1rem;">
@@ -936,8 +934,9 @@
                 `;
 
                 printContainer.innerHTML = reportHTML;
+                printContainer.style.display = 'block';
 
-                // Um timeout maior para garantir que as imagens são carregadas no DOM antes de imprimir
+                // Um timeout para garantir que as imagens são carregadas no DOM antes de imprimir
                 setTimeout(() => {
                     window.print();
                     printContainer.innerHTML = '';
@@ -961,6 +960,7 @@
                         loteSelector.dispatchEvent(new Event('change'));
                     } else if (viewKey !== 'lote-analise' && loteSelector.value !== 'todos') {
                         loteSelector.value = 'todos';
+                        updateViewLoteAnalise();
                     }
                 });
             });
@@ -969,10 +969,10 @@
                 const selectedValue = loteSelector.value;
                 if (selectedValue === 'todos') {
                     if(currentView === 'lote-analise') {
-                       viewButtons['lote'].click();
+                       viewButtons['lote'].click(); // Volta para a visão "Por Lote"
                     }
                 } else {
-                    viewButtons['lote-analise'].click();
+                    viewButtons['lote-analise'].click(); // Vai para a visão "Lote x Análise"
                 }
                 updateViewLoteAnalise();
             });
@@ -1016,9 +1016,16 @@
                     link.click();
                 });
             });
+            
+            // --- Inicialização ---
+            initFirebase();
+            
+            // Certifica-se de que o estado inicial do tema está correto
+            const isDark = document.documentElement.classList.contains('dark');
+            doc('theme-toggle-light-icon').classList.toggle('hidden', !isDark);
+            doc('theme-toggle-dark-icon').classList.toggle('hidden', isDark);
+
         });
     </script>
 </body>
 </html>
-
-
