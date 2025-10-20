@@ -15,13 +15,13 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <!-- REMOVIDO chartjs-adapter-date-fns PARA EVITAR CONFLITO DE REGISTO DE CONTROLADOR -->
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script>
-        // Configuração do modo escuro (Lógica de toggle removida, mas mantemos a leitura inicial do tema para consistência)
+        // Configuração do modo escuro com base no localStorage
         if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
           document.documentElement.classList.add('dark')
         } else {
@@ -101,7 +101,7 @@
             opacity: 1;
         }
 
-        /* Estilos de Impressão (Mantidos apenas como fallback, botões removidos) */
+        /* Estilos de Impressão */
         #print-container {
             display: none;
         }
@@ -214,7 +214,7 @@
                         <span class="tooltiptext">Média de dias desde o Registo do cliente até o Recebimento na Fábrica (Aline).</span>
                     </div>
                 </div><p id="process-avg-receipt-time" class="text-xl sm:text-2xl font-bold text-blue-600 dark:text-blue-400">0.0</p></div>
-            
+                
             <div class="bg-white dark:bg-gray-800 p-3 sm:p-5 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 kpi-card lg:col-span-1">
                 <div class="flex items-center text-xs sm:text-sm text-gray-500 dark:text-gray-400">Tempo Médio Análise (Dias)
                     <div class="tooltip ml-1.5">
@@ -233,6 +233,27 @@
         </div>
         <!-- FIM DOS NOVOS KPIS DE PROCESSO -->
         
+        <!-- Filtros de Data (NOVO) -->
+        <div id="dashboard-filters" class="max-w-4xl mx-auto bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 mb-8">
+            <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Filtrar por Data de Análise</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                    <label for="filter-start-date" class="block text-sm font-medium text-gray-700 dark:text-gray-400">Data Inicial</label>
+                    <input type="date" id="filter-start-date" class="mt-1 block w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                    <label for="filter-end-date" class="block text-sm font-medium text-gray-700 dark:text-gray-400">Data Final</label>
+                    <input type="date" id="filter-end-date" class="mt-1 block w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div class="flex items-end space-x-2">
+                    <button id="apply-filters-btn" class="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-md">Aplicar Filtros</button>
+                    <button id="clear-filters-btn" class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors shadow-md">Limpar</button>
+                </div>
+            </div>
+        </div>
+        <!-- Fim dos Filtros de Data -->
+
+        
         <!-- Seção de Resultados (agora inclui análise de processo) -->
         <div id="dashboard-results" class="hidden">
             <!-- Controles Globais: Seletor de View e Seletor de Lote -->
@@ -246,7 +267,7 @@
                     <button id="view-temporal-btn" class="px-4 py-2 text-sm font-semibold rounded-md">Tendências</button>
                 </div>
                 <!-- Seletor de Lote Global -->
-                <div id="global-lote-selector-container" class="w-full md:w-auto md:max-w-xs">
+                <div id="global-lote-selector-container" class="w-full md:w-auto md:max-w-xs hidden">
                     <select id="lote-selector" class="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm"></select>
                 </div>
             </div>
@@ -375,7 +396,7 @@
                     </div>
                 </div>
             </div>
-
+            
             <!-- NOVO VIEW: Análise de Causas Raiz -->
             <div id="causas-raiz-view" class="hidden">
                  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -399,7 +420,7 @@
                     
                     <!-- KPI 3: Total de Baterias (para Causa Raiz) -->
                     <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 kpi-card">
-                         <div class="flex items-center text-sm text-gray-500 dark:text-gray-400">Total Analisado (Causa)
+                        <div class="flex items-center text-sm text-gray-500 dark:text-gray-400">Total Analisado (Causa)
                             <div class="tooltip ml-1.5">
                                 <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.546-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                 <span class="tooltiptext">Total de baterias finalizadas com um Parecer Técnico.</span>
@@ -421,7 +442,7 @@
                     <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 table-card">
                         <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
                             <h3 class="text-lg font-semibold">Resumo da Causa Raiz</h3>
-                             <div class="w-full sm:w-auto flex gap-2">
+                            <div class="w-full sm:w-auto flex gap-2">
                                 <input type="text" id="causas-raiz-table-search" placeholder="Filtrar por causa..." class="w-full sm:w-48 px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                                 <button class="export-csv-btn px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg" data-view="causas-raiz">Exportar CSV</button>
                             </div>
@@ -451,19 +472,19 @@
                         <div class="flex items-center text-sm text-gray-500 dark:text-gray-400">Mês com Pico de Problemas
                            <div class="tooltip ml-1.5">
                                 <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.546-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                <span class="tooltiptext">O mês/ano de fabricação que teve o maior número de garantias procedentes.</span>
+                                <span class="tooltiptext">O mês/ano de análise que teve o maior número de garantias procedentes.</span>
                             </div>
                         </div><p id="temporal-pico-mes" class="text-2xl font-bold text-gray-900 dark:text-white">-</p></div>
                     <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 kpi-card">
                         <div class="flex items-center text-sm text-gray-500 dark:text-gray-400">Média Mensal de Procedentes
                             <div class="tooltip ml-1.5">
                                 <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.546-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                <span class="tooltiptext">A média de garantias procedentes por mês, considerando os meses com ocorrências.</span>
+                                <span class="tooltiptext">A média de garantias procedentes por mês de análise, considerando os meses com ocorrências.</span>
                             </div>
                         </div><p id="temporal-media-mensal" class="text-2xl font-bold text-gray-900 dark:text-white">0.0</p></div>
                 </div>
                 <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 chart-card">
-                    <h3 class="text-lg font-semibold mb-4">Evolução de Garantias Procedentes (por Data de Fabricação)</h3>
+                    <h3 class="text-lg font-semibold mb-4">Evolução de Garantias Procedentes (por Data de Análise)</h3>
                     <div class="h-96"><canvas id="temporal-chart"></canvas></div>
                 </div>
             </div>
@@ -493,7 +514,7 @@
                             </div>
                         </div><p id="la-top-acao" class="text-2xl font-bold text-gray-900 dark:text-white">-</p></div>
                      <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 kpi-card">
-                        <div class="flex items-center text-sm text-gray-500 dark:text-gray-400">% Procedente no Lote
+                        <div class="flex items-center text-sm text-gray-500 dark:text-gray-400">\% Procedente no Lote
                             <div class="tooltip ml-1.5">
                                 <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.546-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                 <span class="tooltiptext">Porcentagem de baterias 'Procedentes' neste lote (somente finalizadas).</span>
@@ -535,11 +556,11 @@
             const { initializeApp, getFirestore, collection, query, where, onSnapshot, getAuth, signInAnonymously, onAuthStateChanged } = window.firebase;
             
             // --- Variáveis de estado ---
-            let charts = { lote: null, analise: null, 'lote-analise': null, temporal: null, 'causas-raiz': null }; // Adicionado 'causas-raiz'
+            let charts = { lote: null, analise: null, 'lote-analise': null, temporal: null, 'causas-raiz': null };
             let currentView = 'lote';
-            let currentChartType = { lote: 'bar', analise: 'bar', 'lote-analise': 'bar', 'causas-raiz': 'bar' }; // Adicionado 'causas-raiz'
+            let currentChartType = { lote: 'bar', analise: 'bar', 'lote-analise': 'bar', 'causas-raiz': 'bar' };
             let fullDataset = [];
-            let processedMetrics = {}; // Novo objeto para métricas do processo
+            let processedMetrics = {}; 
 
             // --- Credenciais e Configuração Firebase (Deve ser igual ao index.html) ---
             const firebaseConfig = {
@@ -552,7 +573,13 @@
             };
             
             let db, auth;
-            let processedLoteData = [], processedAnaliseData = [], processedCausaRaizData = [], processedLoteAnaliseData = new Map(), processedTemporalData = []; // Adicionado processedCausaRaizData
+            let processedLoteData = [], processedAnaliseData = [], processedCausaRaizData = [], processedLoteAnaliseData = new Map(); 
+            // Map<Lote, Map<MonthKey, Count>>
+            let processedTemporalLoteData = new Map(); 
+            // Array of unique MonthKeys (Year-Month) for X-axis labels
+            let processedTemporalMonthKeys = []; 
+            // processedTemporalData is still used for KPI calculation (MonthKey, {count, date})
+            let processedTemporalData = []; 
 
             // --- Seletores de DOM ---
             const doc = (id) => document.getElementById(id);
@@ -562,21 +589,27 @@
             const errorTextSpan = doc('error-text');
             const dashboardResults = doc('dashboard-results');
             const loteSelector = doc('lote-selector');
-            const printBtn = doc('print-btn');
+            
+            // Novos seletores de filtro
+            const filterStartDate = doc('filter-start-date');
+            const filterEndDate = doc('filter-end-date');
+            const applyFiltersBtn = doc('apply-filters-btn');
+            const clearFiltersBtn = doc('clear-filters-btn');
+
 
             const views = {
                 lote: doc('lote-view'),
                 analise: doc('analise-view'),
                 temporal: doc('temporal-view'),
                 'lote-analise': doc('lote-analise-view'),
-                'causas-raiz': doc('causas-raiz-view') // Adicionado 'causas-raiz'
+                'causas-raiz': doc('causas-raiz-view') 
             };
             const viewButtons = {
                 lote: doc('view-lote-btn'),
                 analise: doc('view-analise-btn'),
                 temporal: doc('view-temporal-btn'),
                 'lote-analise': doc('view-lote-analise-btn'),
-                'causas-raiz': doc('view-causas-raiz-btn') // Adicionado 'causas-raiz'
+                'causas-raiz': doc('view-causas-raiz-btn') 
             };
             
             // --- Funções Auxiliares ---
@@ -601,9 +634,7 @@
                 dashboardResults.classList.remove('hidden');
                 processingBox.classList.add('hidden');
                 processingBox.classList.remove('flex');
-                
-                // Garante que a vista inicial é mostrada
-                views[currentView].classList.remove('hidden'); 
+                updateActiveView();
             }
             
              function getDateFromLot(lot) {
@@ -622,8 +653,16 @@
                 const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
                 return `(${monthNames[date.getMonth()]}/${date.getFullYear().toString().slice(-2)})`;
             }
+            
+            // Formata a chave MonthKey (YYYY-MM) para um rótulo do gráfico (MM/YY)
+            function formatMonthKey(monthKey) {
+                 if (!monthKey || monthKey.length !== 7) return 'N/A';
+                 const [year, month] = monthKey.split('-');
+                 return `${month}/${year.slice(-2)}`;
+            }
 
-            // NOVA FUNÇÃO: Mapeia o Parecer Técnico para uma Causa Raiz Categórica
+
+            // Mapeia o Parecer Técnico para uma Causa Raiz Categórica
             function mapRecommendationToCause(recommendation) {
                 if (!recommendation) return "Não Especificado";
                 const text = recommendation.trim().toUpperCase();
@@ -701,39 +740,45 @@
             
             // --- Lógica de Processamento e Visualização ---
             function recalculateAggregates() {
+                // 1. Obter Filtros de Data
+                const startString = filterStartDate.value;
+                const endString = filterEndDate.value;
+                const startDate = startString ? new Date(startString + 'T00:00:00') : null;
+                const endDate = endString ? new Date(endString + 'T23:59:59') : null;
+
+                // Reinicia contadores e mapas
                 const loteCounts = new Map();
                 const analiseCounts = new Map();
-                const causasRaizCounts = new Map(); // NOVO: Mapeamento para causas raiz
-                const temporalCounts = new Map();
+                const causasRaizCounts = new Map();
+                const temporalCounts = new Map(); // Para KPIs de média mensal (soma total por mês)
                 processedLoteAnaliseData.clear();
+                processedTemporalLoteData.clear(); 
+                processedTemporalMonthKeys = [];
                 
-                // Métrica de Processo
+                // Métrica de Processo (continua a usar fullDataset para KPI's de processo: awaiting/in_analysis)
                 let totalAnalysisDays = 0;
-                let finalizedAnalysisCount = 0;
-                let totalReceiptDays = 0; // NOVO: para tempo de recebimento
-                let totalReceiptCount = 0; // NOVO: para tempo de recebimento
+                let totalReceiptDays = 0; 
+                let totalReceiptCount = 0; 
                 let awaitingReceiptCount = 0;
                 let inAnalysisCount = 0;
+                let allFinalizedCountForAverage = 0;
                 
-                // Filtra apenas dados finalizados para as análises de lote/ação
-                const finalizedDataset = fullDataset.filter(row => row.status === 'finalized' && row.code && row.finalAction);
-
-                // 1. CÁLCULO DE MÉTRICAS DE PROCESSO E CAUSA RAIZ (USANDO O DATASET COMPLETO)
+                // 2. CÁLCULO DE MÉTRICAS DE PROCESSO E SLA (USA O DATASET COMPLETO SEM FILTRO DE DATA, POIS O STATUS É O QUE IMPORTA AQUI)
                 fullDataset.forEach(row => {
                     const serialCode = (row.code || '').trim().toUpperCase();
                     
-                    // Contagem de Status de Processo
+                    // Contagem de Status de Processo (KPIs de 1 a 3)
                     if (row.status === 'awaiting_receipt') {
                         awaitingReceiptCount++;
                     } else if (row.status === 'in_analysis') {
                         inAnalysisCount++;
                     }
                     
-                    // Cálculo do Tempo Médio de Recebimento
+                    // Cálculo do Tempo Médio de Recebimento (KPI 4)
                     if (row.submissionDate && row.receiptDate) {
                         const submissionDate = new Date(row.submissionDate);
                         const receiptDate = new Date(row.receiptDate);
-                        if (!isNaN(submissionDate) && !isNaN(receiptDate) && receiptDate > submissionDate) {
+                        if (!isNaN(submissionDate.getTime()) && !isNaN(receiptDate.getTime()) && receiptDate > submissionDate) {
                             const diffTime = Math.abs(receiptDate - submissionDate);
                             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                             if (diffDays >= 0) {
@@ -743,38 +788,53 @@
                         }
                     }
 
-                    // Cálculo do Tempo Médio de Análise (Aline -> Reginaldo)
+                    // Cálculo do Tempo Médio de Análise (KPI 5 - Usa TODOS os finalizados)
                     if (row.status === 'finalized' && row.receiptDate && row.technicalOpinionDate) {
                         const receiptDate = new Date(row.receiptDate);
                         const analysisDate = new Date(row.technicalOpinionDate);
                         
-                        if (!isNaN(receiptDate) && !isNaN(analysisDate)) {
+                        if (!isNaN(receiptDate.getTime()) && !isNaN(analysisDate.getTime())) {
                             const diffTime = Math.abs(analysisDate - receiptDate);
                             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                             if (diffDays >= 0) {
                                 totalAnalysisDays += diffDays;
-                                finalizedAnalysisCount++;
+                                allFinalizedCountForAverage++; // Conta apenas para o cálculo da Média
                             }
                         }
-                        
-                        // Mapeamento de Causa Raiz (SÓ PARA FINALIZADOS)
-                        const causa = mapRecommendationToCause(row.recommendation);
-                        causasRaizCounts.set(causa, (causasRaizCounts.get(causa) || 0) + 1);
                     }
                 });
-
-                const totalInProcess = awaitingReceiptCount + inAnalysisCount;
                 
+                // Atualiza processedMetrics (KPIs de Processo)
+                const totalInProcess = awaitingReceiptCount + inAnalysisCount;
                 processedMetrics = {
                     totalRegistered: fullDataset.length,
                     awaitingReceiptCount: awaitingReceiptCount,
                     inAnalysisCount: inAnalysisCount,
-                    avgReceiptTime: totalReceiptCount > 0 ? (totalReceiptDays / totalReceiptCount).toFixed(1) : '0.0', // NOVO KPI
-                    avgAnalysisTime: finalizedAnalysisCount > 0 ? (totalAnalysisDays / finalizedAnalysisCount).toFixed(1) : '0.0',
-                    pendingRate: fullDataset.length > 0 ? ((totalInProcess / fullDataset.length) * 100).toFixed(1) : '0' // NOVO KPI
+                    avgReceiptTime: totalReceiptCount > 0 ? (totalReceiptDays / totalReceiptCount).toFixed(1) : '0.0', 
+                    avgAnalysisTime: allFinalizedCountForAverage > 0 ? (totalAnalysisDays / allFinalizedCountForAverage).toFixed(1) : '0.0',
+                    pendingRate: fullDataset.length > 0 ? ((totalInProcess / fullDataset.length) * 100).toFixed(1) : '0'
                 };
+
+
+                // 3. FILTRAGEM DO DATASET PRINCIPAL (Aplica o filtro de Data de Análise)
+                let finalizedDataset = fullDataset.filter(row => row.status === 'finalized' && row.code && row.finalAction);
                 
-                // 2. CÁLCULO DE MÉTRICAS DE LOTE / AÇÃO (USANDO APENAS DADOS FINALIZADOS)
+                if (startDate && !isNaN(startDate.getTime())) {
+                    finalizedDataset = finalizedDataset.filter(row => {
+                        const date = row.technicalOpinionDate ? new Date(row.technicalOpinionDate) : null;
+                        return date && date.getTime() >= startDate.getTime();
+                    });
+                }
+
+                if (endDate && !isNaN(endDate.getTime())) {
+                    finalizedDataset = finalizedDataset.filter(row => {
+                        const date = row.technicalOpinionDate ? new Date(row.technicalOpinionDate) : null;
+                        return date && date.getTime() <= endDate.getTime();
+                    });
+                }
+
+
+                // 4. CÁLCULO DE MÉTRICAS DE LOTE / AÇÃO / TEMPORAL / CAUSA RAIZ (USA O DATASET FILTRADO)
                 finalizedDataset.forEach(row => {
                     const serialCode = (row.code || '').trim().toUpperCase();
                     const acaoFinal = row.finalAction.trim().toUpperCase() || "Não preenchido";
@@ -783,35 +843,56 @@
                     if (serialCode && serialCode.length >= 4) {
                         loteCounts.set(lote, (loteCounts.get(lote) || 0) + 1);
                         analiseCounts.set(acaoFinal, (analiseCounts.get(acaoFinal) || 0) + 1);
-
-                        // Análise Temporal
-                        if (acaoFinal === 'PROCEDENTE (ENVIAR NOVA)' || acaoFinal.includes('CORTESIA')) {
-                            const date = getDateFromLot(lote);
-                            if(date) {
-                                const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-                                if (!temporalCounts.has(monthKey)) {
-                                    temporalCounts.set(monthKey, { count: 0, lotes: new Set(), date: date.getTime() });
-                                }
-                                const monthEntry = temporalCounts.get(monthKey);
-                                monthEntry.count++;
-                                monthEntry.lotes.add(lote);
-                            }
-                        }
+                        
+                        // Mapeamento de Causa Raiz
+                        const causa = mapRecommendationToCause(row.recommendation);
+                        causasRaizCounts.set(causa, (causasRaizCounts.get(causa) || 0) + 1);
 
                         // Análise Lote x Análise
                         if (!processedLoteAnaliseData.has(lote)) processedLoteAnaliseData.set(lote, new Map());
                         const acoesInLote = processedLoteAnaliseData.get(lote);
                         acoesInLote.set(acaoFinal, (acoesInLote.get(acaoFinal) || 0) + 1);
+
+
+                        // Análise Temporal - CRÍTICO: SOMENTE PROCEDENTE (ENVIAR NOVA)
+                        if (acaoFinal === 'PROCEDENTE (ENVIAR NOVA)' && row.technicalOpinionDate) { 
+                            const analysisDate = new Date(row.technicalOpinionDate);
+                            
+                            if(!isNaN(analysisDate.getTime())) {
+                                const year = analysisDate.getFullYear();
+                                const month = analysisDate.getMonth() + 1;
+                                const monthKey = `${year}-${String(month).padStart(2, '0')}`;
+                                const lote = serialCode.substring(0, 4);
+
+                                // 4.1. Estrutura para KPI de Média Mensal (Soma total por Mês de Análise)
+                                if (!temporalCounts.has(monthKey)) {
+                                    temporalCounts.set(monthKey, { count: 0, date: analysisDate.getTime() });
+                                }
+                                temporalCounts.get(monthKey).count++;
+
+                                // 4.2. Estrutura para Gráfico Multi-Linha (Lotes por Mês de Análise)
+                                
+                                if (!processedTemporalLoteData.has(lote)) {
+                                    processedTemporalLoteData.set(lote, new Map()); // Map<MonthKey, Count>
+                                }
+                                const loteMap = processedTemporalLoteData.get(lote);
+                                loteMap.set(monthKey, (loteMap.get(monthKey) || 0) + 1); // Conta a ocorrência do lote no mês de análise
+
+                                // Adiciona a chave de mês para o array de meses únicos (eixo X)
+                                processedTemporalMonthKeys.push(monthKey);
+                            }
+                        }
                     }
                 });
                 
                 processedLoteData = Array.from(loteCounts.entries()).sort(([, a], [, b]) => b - a);
                 processedAnaliseData = Array.from(analiseCounts.entries()).sort(([, a], [, b]) => b - a);
-                
-                // Causa Raiz: Ordena e processa
                 processedCausaRaizData = Array.from(causasRaizCounts.entries()).sort(([, a], [, b]) => b - a);
                 
-                // Ordena dados temporais por data e mapeia para a estrutura final
+                // Ordena os meses únicos para o eixo X do gráfico e remove duplicatas
+                processedTemporalMonthKeys = Array.from(new Set(processedTemporalMonthKeys)).sort();
+                
+                // Mapeia processedTemporalData (para KPI) para a estrutura final
                 processedTemporalData = Array.from(temporalCounts.entries())
                     .sort(([, a], [, b]) => a.date - b.date)
                     .map(([monthKey, data]) => [monthKey, data]);
@@ -819,32 +900,42 @@
 
                 updateAllViews();
             }
+            
+            function updateActiveView() {
+                // Atualiza a visualização da view atual
+                Object.values(views).forEach(v => v.classList.add('hidden'));
+                views[currentView].classList.remove('hidden');
+                Object.values(viewButtons).forEach(b => b.classList.remove('bg-white', 'dark:bg-gray-900', 'shadow'));
+                viewButtons[currentView].classList.add('bg-white', 'dark:bg-gray-900', 'shadow');
+                
+                // Garante que o lote selector só é visível se a view for 'lote-analise'
+                doc('global-lote-selector-container').classList.toggle('hidden', currentView !== 'lote-analise');
+
+                // Garante que o gráfico certo é renderizado
+                renderAllCharts();
+            }
+
 
             function updateAllViews() {
                 updateViewProcess();
                 updateViewLote();
                 updateViewAnalise();
-                updateViewCausasRaiz(); // NOVO
+                updateViewCausasRaiz(); 
                 updateViewTemporal();
                 populateLoteSelector();
                 updateViewLoteAnalise();
-                renderAllCharts();
+                updateActiveView(); 
             }
-            
-            // ATUALIZADO: Função para atualizar os KPIs de processo (incluindo os novos SLA)
+
             function updateViewProcess() {
-                const totalInProcess = processedMetrics.awaitingReceiptCount + processedMetrics.inAnalysisCount;
-                const totalFinalized = fullDataset.filter(b => b.status === 'finalized').length;
-                
                 doc('process-total-registered').textContent = processedMetrics.totalRegistered;
                 doc('process-awaiting-receipt').textContent = processedMetrics.awaitingReceiptCount;
                 doc('process-in-analysis').textContent = processedMetrics.inAnalysisCount;
-                doc('process-avg-receipt-time').textContent = processedMetrics.avgReceiptTime; // NOVO KPI
+                doc('process-avg-receipt-time').textContent = processedMetrics.avgReceiptTime; 
                 doc('process-avg-analysis-time').textContent = processedMetrics.avgAnalysisTime;
-                doc('process-pending-rate').textContent = `${processedMetrics.pendingRate}%`; // NOVO KPI
+                doc('process-pending-rate').textContent = `${processedMetrics.pendingRate}%`; 
             }
-            
-            // NOVO: Função para atualizar a Vista de Causas Raiz
+
             function updateViewCausasRaiz() {
                 const data = processedCausaRaizData;
                 const total = data.reduce((s, [, c]) => s + c, 0);
@@ -861,10 +952,13 @@
 
                 // Renderiza Tabela e Gráfico
                 updateTable(doc('causas-raiz-summary-table'), data, 'causas-raiz');
-                renderChartForView('causas-raiz');
                 
                 // Adiciona listener de pesquisa para a tabela Causas Raiz
-                doc('causas-raiz-table-search').addEventListener('keyup', e => filterTable(e.target.value, doc('causas-raiz-summary-table')));
+                const searchInput = doc('causas-raiz-table-search');
+                if (searchInput) {
+                    searchInput.removeEventListener('keyup', filterTableWrapper);
+                    searchInput.addEventListener('keyup', filterTableWrapper); 
+                }
             }
 
 
@@ -874,7 +968,7 @@
                 doc('lote-total-items').textContent = total;
                 doc('lote-unique-lotes').textContent = data.length;
                 doc('lote-average-items').textContent = (data.length > 0 ? (total / data.length) : 0).toFixed(2);
-                doc('lote-top-lote').textContent = data[0] ? data[0][0] : '-';
+                doc('lote-top-lote').textContent = data[0] ? `${data[0][0]} ${getMonthYearFromLot(data[0][0])}` : '-';
                 updateTable(doc('lote-summary-table'), data, 'lote');
                 updateTopList(doc('lote-top-list'), data, total, 'lote');
             }
@@ -896,14 +990,17 @@
                 doc('temporal-total-procedentes').textContent = totalProcedentes;
                 
                 const pico = data.reduce((max, item) => item[1].count > (max[1]?.count || 0) ? item : max, ['', {count: 0}]);
-                const picoMes = pico[0] ? new Date(pico[0] + '-02').toLocaleString('pt-BR', { month: 'short', year: '2-digit' }) : '-';
+                const picoMes = pico[0] ? new Date(pico[0] + '-02').toLocaleString('pt-BR', { month: 'short', year: 'numeric' }) : '-';
                 doc('temporal-pico-mes').textContent = picoMes;
                 
-                const media = (data.length > 0 ? (totalProcedentes / data.length) : 0);
+                // Utiliza data.length para obter o número de meses únicos no conjunto de dados filtrado
+                const uniqueMonths = data.length;
+                const media = (uniqueMonths > 0 ? (totalProcedentes / uniqueMonths) : 0);
                 doc('temporal-media-mensal').textContent = media.toFixed(1);
             }
 
             function populateLoteSelector() {
+                const currentSelectedLote = loteSelector.value;
                 loteSelector.innerHTML = '<option value="todos">Visão Geral (Todos os Lotes)</option>';
                 processedLoteData.forEach(([lote]) => {
                     const option = document.createElement('option');
@@ -912,6 +1009,11 @@
                     option.textContent = `${lote} ${dateStr}`;
                     loteSelector.appendChild(option);
                 });
+                
+                // Restaura a seleção anterior se ainda existir
+                if (processedLoteData.some(([lote]) => lote === currentSelectedLote)) {
+                    loteSelector.value = currentSelectedLote;
+                }
             }
 
             function updateViewLoteAnalise() {
@@ -930,7 +1032,8 @@
                 const data = Array.from(dataMap.entries()).sort(([, a], [, b]) => b - a);
                 
                 const total = data.reduce((s, [, c]) => s + c, 0);
-                const procedenteCount = dataMap.get('PROCEDENTE (ENVIAR NOVA)') || 0;
+                // CRÍTICO: Usa somente PROCEDENTE (ENVIAR NOVA)
+                const procedenteCount = dataMap.get('PROCEDENTE (ENVIAR NOVA)') || 0; 
                 
                 doc('la-total-items').textContent = total;
                 doc('la-unique-acoes').textContent = data.length;
@@ -939,15 +1042,15 @@
                 const procedentePerc = (total > 0 ? (procedenteCount / total) * 100 : 0).toFixed(1);
                 doc('la-procedente-perc').textContent = `${procedentePerc}%`;
                 
-                doc('la-chart-title').textContent = `Distribuição de Análises no Lote ${selectedLote}`;
+                doc('la-chart-title').textContent = `Distribuição de Análises no Lote ${selectedLote} ${getMonthYearFromLot(selectedLote)}`;
                 updateTable(doc('lote-analise-summary-table'), data, 'lote-analise');
                 renderChartForView('lote-analise');
             }
 
             function updateTable(tbody, data, view) {
-                // Ajusta a exibição para a vista de Causas Raiz, removendo "Não Especificado" se não for o único item
-                const displayData = view === 'causas-raiz' && data.length > 1 
-                    ? data.filter(([item]) => item !== "Não Especificado") 
+                 // Ajusta a exibição para a vista de Causas Raiz, removendo "Não Especificado" se não for o único item
+                const displayData = view === 'causas-raiz' && data.length > 1
+                    ? data.filter(([item]) => item !== "Não Especificado")
                     : data;
 
                  tbody.innerHTML = displayData.map(([item, count]) => {
@@ -955,6 +1058,7 @@
                     return `<tr><td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">${item}${dateStr}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">${count}</td></tr>`;
                 }).join('');
             }
+            
             function updateTopList(ul, data, total, view) {
                 ul.innerHTML = data.slice(0, 10).map(([item, count]) => {
                     const perc = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
@@ -972,9 +1076,9 @@
                 renderChartForView('lote');
                 renderChartForView('analise');
                 renderChartForView('temporal');
-                renderChartForView('causas-raiz'); // NOVO
+                renderChartForView('causas-raiz');
                 if(loteSelector.value !== 'todos') {
-                   renderChartForView('lote-analise');
+                    renderChartForView('lote-analise');
                 } else {
                     charts['lote-analise'] = null;
                 }
@@ -991,27 +1095,13 @@
                 const isDarkMode = document.documentElement.classList.contains('dark');
                 const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
                 const textColor = isDarkMode ? '#e5e7eb' : '#374151';
-                // Paletas de cores para gráficos de pizza/doughnut e causas raiz
                 const pieColors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1', '#14b8a6', '#facc15', '#f87171'];
-                
-                // Paleta de cores para Causas Raiz (para consistência visual)
-                const causaRaizColors = [
-                    '#10b981', // Falha de Fábrica (Elétrica) - Verde
-                    '#059669', // Falha de Fábrica (Geral) - Verde Escuro
-                    '#f59e0b', // Improcedente (Cortesia) - Laranja
-                    '#3b82f6', // Falha Externa (Descarregada) - Azul
-                    '#ef4444', // Falha Externa (Mau Uso) - Vermelho
-                    '#b91c1c', // Fora do Prazo - Vermelho Escuro
-                    '#6b7280', // Não Especificado - Cinza
-                    '#4b5563'  // Reprovada (Outras) - Cinza Escuro
-                ];
-                
                 const baseOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: textColor } }, tooltip: { backgroundColor: isDarkMode ? '#1f2937' : '#ffffff', titleColor: isDarkMode ? '#e5e7eb' : '#374151', bodyColor: isDarkMode ? '#d1d5db' : '#6b7280', borderColor: isDarkMode ? '#4b5563' : '#e5e7eb', borderWidth: 1, } } };
                 
                 if (view === 'lote' || view === 'analise' || view === 'lote-analise' || view === 'causas-raiz') {
                     if (view === 'lote') data = processedLoteData.slice(0, 20);
                     else if (view === 'analise') data = processedAnaliseData;
-                    else if (view === 'causas-raiz') data = processedCausaRaizData; // DADOS CAUSA RAIZ
+                    else if (view === 'causas-raiz') data = processedCausaRaizData; 
                     else {
                         const selectedLote = loteSelector.value;
                         if (!selectedLote || selectedLote === 'todos' || !processedLoteAnaliseData.has(selectedLote)) return;
@@ -1021,28 +1111,45 @@
                     // Ajusta dados de Causa Raiz para remover "Não Especificado" se houver outros
                     const isCausaRaiz = view === 'causas-raiz';
                     if (isCausaRaiz && data.length > 1) {
-                         data = data.filter(([item]) => item !== "Não Especificado");
+                            data = data.filter(([item]) => item !== "Não Especificado");
                     }
 
                     chartType = currentChartType[view];
                     labels = data.map(([item]) => item);
                     chartData = data.map(([, count]) => count);
                     
-                    const chartColors = isCausaRaiz 
+                    const causaRaizColors = [
+                        '#10b981', '#059669', '#f59e0b', '#3b82f6', '#ef4444', '#b91c1c', '#6b7280', '#94a3b8' 
+                    ];
+                    
+                    const chartColors = isCausaRaiz
                         ? labels.map(label => {
-                            // Mapeamento simples para cores de causas raiz (exemplo)
-                            if (label.includes("Fábrica")) return causaRaizColors[0];
+                            if (label.includes("Fábrica (Elétrica)")) return causaRaizColors[0];
+                            if (label.includes("Fábrica (Geral)")) return causaRaizColors[1];
                             if (label.includes("Cortesia")) return causaRaizColors[2];
                             if (label.includes("Descarregada")) return causaRaizColors[3];
                             if (label.includes("Mau Uso")) return causaRaizColors[4];
                             if (label.includes("Prazo")) return causaRaizColors[5];
-                            return pieColors[Math.floor(Math.random() * pieColors.length)]; // Cor genérica para outros
+                            return causaRaizColors[6]; // Outras / Genérica
                           })
                         : (chartType === 'bar' ? 'rgba(59, 130, 246, 0.7)' : pieColors);
                     
-                    options = { ...baseOptions, plugins: { ...baseOptions.plugins, legend: { ...baseOptions.plugins.legend, display: chartType !== 'bar', position: 'right' } }, scales: chartType === 'bar' ? { y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: textColor } }, x: { grid: { color: gridColor }, ticks: { color: textColor, maxRotation: 70, minRotation: 0 } } } : {} };
-                     
-                    charts[view] = new Chart(chartCanvas, {
+                    options = { 
+                        ...baseOptions, 
+                        plugins: { 
+                            ...baseOptions.plugins, 
+                            legend: { 
+                                ...baseOptions.plugins.legend, 
+                                display: chartType !== 'bar', 
+                                position: 'right' 
+                            } 
+                        }, 
+                        scales: chartType === 'bar' ? { 
+                            y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: textColor } }, 
+                            x: { grid: { color: gridColor }, ticks: { color: textColor, maxRotation: 70, minRotation: 0 } } 
+                        } : {} 
+                    };
+                     charts[view] = new Chart(chartCanvas, {
                         type: chartType,
                         data: { 
                             labels, 
@@ -1059,104 +1166,123 @@
                     });
 
                 } else if (view === 'temporal') {
-                    // Lógica para Gráfico Temporal (não alterada)
-                    data = processedTemporalData;
-                    chartType = 'line';
+                    // CRÍTICO: LÓGICA MULTI-LINHA POR LOTE (AGORA USA ESCALA CATEGORY/STRING)
+                    const allLotes = Array.from(processedTemporalLoteData.keys());
+                    const allMonthsKeys = processedTemporalMonthKeys; // YYYY-MM
                     
-                    labels = data.map(([monthKey]) => {
-                        const [year, month] = monthKey.split('-');
-                        return new Date(parseInt(year), parseInt(month) - 1, 1).getTime();
+                    // Rótulos do Eixo X (Strings formatadas MM/YY)
+                    labels = allMonthsKeys.map(formatMonthKey); 
+
+                    // Gera um dataset (linha) para cada lote
+                    const dynamicDatasets = allLotes.map((lote, index) => {
+                        const loteDataMap = processedTemporalLoteData.get(lote); // Map<MonthKey, Count>
+                        
+                        // Cria os pontos de dados. O índice no array Data corresponde ao índice do Mês em allMonthsKeys
+                        const loteDataPoints = allMonthsKeys.map(monthKey => {
+                            return loteDataMap.get(monthKey) || 0; // Se não houver dados, retorna 0
+                        });
+                        
+                        // Seleção de Cores Dinâmica
+                        const colorIndex = index % pieColors.length;
+                        const baseColor = pieColors[colorIndex];
+                        const borderColor = baseColor;
+                        const backgroundColor = baseColor.replace('1)', '0.2)');
+
+                        return {
+                            label: `Lote ${lote}`,
+                            data: loteDataPoints,
+                            backgroundColor: backgroundColor,
+                            borderColor: borderColor,
+                            borderWidth: 2,
+                            pointBackgroundColor: borderColor,
+                            tension: 0.4, 
+                            fill: false,
+                            hidden: allLotes.length > 10 && index > 4, // Esconde linhas excessivas inicialmente para clareza
+                        };
                     });
-                    
-                    chartData = data.map(([, d]) => d.count);
-                    
+
                     options = { 
                         ...baseOptions, 
                         plugins: {
                             ...baseOptions.plugins,
+                            legend: { labels: { color: textColor, boxWidth: 10 } }, 
                             tooltip: {
                                 ...baseOptions.plugins.tooltip,
                                 callbacks: {
                                     title: (tooltipItems) => {
-                                        const date = new Date(tooltipItems[0].parsed.x);
-                                        return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+                                        // Usa o rótulo do eixo X (Mês/Ano formatado)
+                                        return labels[tooltipItems[0].dataIndex];
                                     },
-                                    footer: (tooltipItems) => {
-                                        const index = tooltipItems[0].dataIndex;
-                                        const [, monthData] = processedTemporalData[index];
-                                        const lotes = Array.from(monthData.lotes).sort();
-                                        if (lotes.length === 0) return '';
-                                        
-                                        let lotesStr = lotes.slice(0, 5).join(', ');
-                                        if (lotes.length > 5) {
-                                            lotesStr += `, ... (${lotes.length - 5} mais)`;
-                                        }
-                                        return ['', 'Lotes:', lotesStr];
-                                    }
+                                    footer: (tooltipItems) => { return ''; } 
                                 }
                             }
                         },
                         scales: { 
                             y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: textColor } }, 
                             x: { 
-                                type: 'time', 
-                                time: { unit: 'month', tooltipFormat: 'MMM yy', displayFormats: { month: 'MMM yy' } }, 
+                                type: 'category', // MUDANÇA CRÍTICA: Usa categoria para funcionar sem o adaptador de data
                                 grid: { color: gridColor }, 
-                                ticks: { color: textColor } 
+                                ticks: { color: textColor, maxRotation: 70, minRotation: 0 } 
                             } 
                         } 
                     };
+
                     charts[view] = new Chart(chartCanvas, {
-                        type: chartType,
+                        type: 'line', // Tipo fixo para linha
                         data: {
-                            labels,
-                            datasets: [{
-                                label: 'Garantias Procedentes',
-                                data: data.map(([, d]) => ({ x: d.date, y: d.count })), 
-                                backgroundColor: 'rgba(239, 68, 68, 0.2)',
-                                borderColor: 'rgba(239, 68, 68, 1)',
-                                borderWidth: 2,
-                                pointBackgroundColor: 'rgba(239, 68, 68, 1)',
-                                tension: 0.1,
-                                fill: true,
-                            }]
+                            labels: labels, // Strings formatadas (MM/YY)
+                            datasets: dynamicDatasets 
                         },
                         options
                     });
                 }
             }
-
+            
             // --- Lógica de Impressão (Removida e substituída por exportação CSV) ---
             
             // --- Lógica de Interação ---
-            // printBtn.addEventListener('click', generatePrintReport); -> Removida
+            
+            // Wrapper para o listener de pesquisa para evitar problemas de reatribuição (good practice)
+            const filterTableWrapper = (e) => filterTable(e.target.value, doc('causas-raiz-summary-table'));
+            
+            // Listener para aplicar filtros
+            applyFiltersBtn.addEventListener('click', () => {
+                recalculateAggregates();
+            });
+            
+            // Listener para limpar filtros
+            clearFiltersBtn.addEventListener('click', () => {
+                filterStartDate.value = '';
+                filterEndDate.value = '';
+                recalculateAggregates(); // Recalcula com filtros vazios (todos os dados)
+            });
 
-            Object.keys(viewButtons).forEach(viewKey => {
-                viewButtons[viewKey].addEventListener('click', () => {
-                    currentView = viewKey;
-                    Object.values(views).forEach(v => v.classList.add('hidden'));
-                    views[viewKey].classList.remove('hidden');
-                    Object.values(viewButtons).forEach(b => b.classList.remove('bg-white', 'dark:bg-gray-900', 'shadow'));
-                    viewButtons[viewKey].classList.add('bg-white', 'dark:bg-gray-900', 'shadow');
-                    
-                    if(viewKey === 'lote-analise' && loteSelector.value === 'todos' && loteSelector.options.length > 1) {
-                        loteSelector.selectedIndex = 1;
-                        loteSelector.dispatchEvent(new Event('change'));
-                    } else if (viewKey !== 'lote-analise' && loteSelector.value !== 'todos') {
-                        loteSelector.value = 'todos';
-                        updateViewLoteAnalise();
-                    }
-                });
+            Object.keys(views).forEach(viewKey => {
+                const button = viewButtons[viewKey];
+                if (button) {
+                    button.addEventListener('click', () => {
+                        currentView = viewKey;
+                        updateActiveView();
+                        
+                        if(viewKey === 'lote-analise' && loteSelector.value === 'todos' && processedLoteData.length > 0) {
+                            // Seleciona o primeiro lote automaticamente ao mudar para 'Lote x Análise'
+                            loteSelector.selectedIndex = 1;
+                            loteSelector.dispatchEvent(new Event('change'));
+                        } else if (viewKey !== 'lote-analise' && loteSelector.value !== 'todos') {
+                            // Reseta a seleção do lote se sair da view Lote x Análise
+                            loteSelector.value = 'todos';
+                            updateViewLoteAnalise(); 
+                        }
+                    });
+                }
             });
 
             loteSelector.addEventListener('change', () => {
                 const selectedValue = loteSelector.value;
-                if (selectedValue === 'todos') {
-                    if(currentView === 'lote-analise') {
-                       viewButtons['lote'].click(); // Volta para a visão "Por Lote"
-                    }
-                } else {
-                    viewButtons['lote-analise'].click(); // Vai para a visão "Lote x Análise"
+                if (selectedValue !== 'todos' && currentView !== 'lote-analise') {
+                    // Mudar a view para "Lote x Análise" se um lote específico for selecionado fora dessa view
+                    currentView = 'lote-analise';
+                    updateActiveView(); 
                 }
                 updateViewLoteAnalise();
             });
@@ -1172,9 +1298,14 @@
                 });
             });
             
-            doc('lote-table-search').addEventListener('keyup', e => filterTable(e.target.value, doc('lote-summary-table')));
-            doc('analise-table-search').addEventListener('keyup', e => filterTable(e.target.value, doc('analise-summary-table')));
-            doc('causas-raiz-table-search')?.addEventListener('keyup', e => filterTable(e.target.value, doc('causas-raiz-summary-table'))); // NOVO LISTENER
+            doc('lote-table-search')?.addEventListener('keyup', e => filterTable(e.target.value, doc('lote-summary-table')));
+            doc('analise-table-search')?.addEventListener('keyup', e => filterTable(e.target.value, doc('analise-summary-table')));
+            
+            const searchInputCausasRaiz = doc('causas-raiz-table-search');
+            if (searchInputCausasRaiz) {
+                // Usa o wrapper definido anteriormente
+                searchInputCausasRaiz.addEventListener('keyup', filterTableWrapper); 
+            }
 
             const filterTable = (term, table) => table.querySelectorAll('tr').forEach(row => row.style.display = row.cells[0].textContent.toUpperCase().includes(term.toUpperCase()) ? "" : "none");
             
@@ -1194,7 +1325,7 @@
                         data = processedAnaliseData;
                         headers = "Acao Final,Quantidade";
                         rows = data.map(row => row.join(','));
-                    } else if (view === 'causas-raiz') { // NOVO EXPORT
+                    } else if (view === 'causas-raiz') { 
                         data = processedCausaRaizData.filter(([item]) => item !== "Não Especificado");
                         headers = "Causa Raiz,Quantidade";
                         rows = data.map(row => row.join(','));
@@ -1211,13 +1342,26 @@
             // --- Inicialização ---
             initFirebase();
             
-            // Lógica para ligar o tema (TODA A LÓGICA DE INTERAÇÃO FOI REMOVIDA)
-            // doc('theme-toggle').addEventListener('click', ...); -> Removido
-
             // Certifica-se de que o estado inicial do tema está correto
             const isDark = document.documentElement.classList.contains('dark');
-            // doc('theme-toggle-light-icon').classList.toggle('hidden', !isDark); -> Removido
-            // doc('theme-toggle-dark-icon').classList.toggle('hidden', isDark); -> Removido
+            
+            // Toggle do tema (ORIGINALMENTE CAUSANDO ERRO: doc('theme-toggle') é null no HTML)
+            const themeToggleBtn = doc('theme-toggle'); 
+            if (themeToggleBtn) { // Adiciona a verificação de null
+                themeToggleBtn.addEventListener('click', () => {
+                    document.documentElement.classList.toggle('dark');
+                    const isDark = document.documentElement.classList.contains('dark');
+                    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+                    // Estas chamadas também precisam ser verificadas, caso os ícones também tenham sido removidos
+                    const lightIcon = doc('theme-toggle-light-icon');
+                    const darkIcon = doc('theme-toggle-dark-icon');
+                    if (lightIcon) lightIcon.classList.toggle('hidden', !isDark);
+                    if (darkIcon) darkIcon.classList.toggle('hidden', isDark);
+
+                    // Recria todos os gráficos para aplicar o novo esquema de cores (texto/grid)
+                    renderAllCharts();
+                });
+            }
 
         });
     </script>
